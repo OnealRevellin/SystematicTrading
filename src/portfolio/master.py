@@ -14,7 +14,7 @@ from ..execution.order import Order, OrderType, TimeInForce
 from ..execution.fill import Fill
 
 
-class MasterPorfolio:
+class MasterPortfolio:
 
     __slots__ = (
         "_cash",
@@ -72,13 +72,20 @@ class MasterPorfolio:
         in_lots = rules.get("in_lots", False)
         lot_size = float(rules.get("lot_size", 1.0))
 
+        # Support instruments that allow fractional units (e.g. crypto)
+        # By default we assume integer shares unless `integer` is explicitly set to False
+        integer = bool(rules.get("integer", True))
+
+        # If instrument is not traded in lots, either return raw quantity
+        # (for fractional instruments) or round to the nearest whole unit.
         if not in_lots:
-            return qty
-        
+            return float(round(qty)) if integer else float(qty)
+
+        # Instrument trades in lots: round to nearest multiple of `lot_size`
         if lot_size <= 0.0:
             raise ValueError(f"Invalid lot_size for symbol '{sym}': {lot_size}")
-        
-        return float((round(qty) / lot_size) * lot_size)
+
+        return float(round(qty / lot_size) * lot_size)
 
     # -----------------------------
     # Oder generation
@@ -204,7 +211,7 @@ if __name__ == "__main__":
     print("1. INITIALIZE PORTFOLIO")
     print("-" * 80)
     
-    portfolio = MasterPorfolio(
+    portfolio = MasterPortfolio(
         initial_cash=1_000_000.0,
         instrument_rules={
             "AAPL": {"in_lots": False},
@@ -303,7 +310,7 @@ if __name__ == "__main__":
     print("5. EXECUTE ORDERS - BROKER SIMULATION")
     print("-" * 80)
     
-    broker = Broker(fee_rate=0.001, min_fee=0.0)  # 0.1% commission
+    broker = Broker(fee_rate=0.0, min_fee=0.0)  # let's assume 0.1% commission
     fills = broker.execute_orders(orders, ctx)
     
     print(f"Broker executed {len(fills)} fills (fee_rate={broker._fee_rate*100:.1f}%):")
@@ -351,7 +358,7 @@ if __name__ == "__main__":
     market_snapshot_tick2 = {
         "AAPL": Bar(open=181.0, high=182.0, low=180.0, close=181.5, volume=45_000_000),
         "MSFT": Bar(open=371.0, high=373.0, low=370.0, close=372.0, volume=35_000_000),
-        "TSLA": Bar(open=242.0, high=244.0, low=240.0, close=243.0, volume=110_000_000),
+        "TSLA": Bar(open=242.0, high=244.0, low=240.0, close=293.0, volume=110_000_000),
     }
     
     ctx.reset_step(tick2)
