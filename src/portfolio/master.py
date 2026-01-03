@@ -99,7 +99,7 @@ class MasterPortfolio:
         order_type: Optional[OrderType] = None,
         time_in_force: Optional[TimeInForce] = None,
         price_time: str = "close",
-        
+        min_size: float = 1e-12,
     ) -> List[Order]:
         """
         Convert target weights into delta Orders.
@@ -143,7 +143,7 @@ class MasterPortfolio:
             target_units = self._compute_unit_size(sym, raw_units)
 
             # Drop tiny values to reduce churn
-            if abs(target_units) < 1e-12:
+            if abs(target_units) < min_size:
                 target_units = 0.0
 
             target_pos[sym] = target_units
@@ -155,7 +155,7 @@ class MasterPortfolio:
             tgt = target_pos.get(sym, 0.0)
             delta = tgt - cur
 
-            if abs(delta) <= 1e-12:
+            if abs(delta) <= min_size:
                 continue
 
             orders.append(
@@ -164,6 +164,34 @@ class MasterPortfolio:
                     quantity=delta,
                     order_type=ot,
                     time_in_force=tif,
+                    limit_price=None,
+                    stop_price=None,
+                    order_id=None,
+                )
+            )
+
+        return orders
+    
+    def build_closing_orders(
+        self,
+        ctx: Context,
+    ) -> List[Order]:
+        """
+        Build orders to close all open positions.
+        """
+
+        orders: List[Order] = []
+
+        for sym, qty in self._positions.items():
+            if abs(qty) <= 1e-12:
+                continue
+
+            orders.append(
+                Order(
+                    symbol=sym,
+                    quantity=-qty,
+                    order_type=self._default_order_type,
+                    time_in_force=self._default_tif,
                     limit_price=None,
                     stop_price=None,
                     order_id=None,
