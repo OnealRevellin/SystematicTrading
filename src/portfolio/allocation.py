@@ -115,14 +115,14 @@ if __name__ == "__main__":
     # Mode = weights (capital-based)
     # -----------------------------
     alloc_weights = AllocationEngine(
-        mode="weights",
+        mode="capital_based",
         max_gross=.9,
         normalize=True,
     )
 
     w_capital = alloc_weights.allocate(outputs, ctx)
 
-    print("=== Allocation mode = 'weights' (capital-based) ===")
+    print("=== Allocation mode = 'capital_based' (capital-based) ===")
     for sym, w in w_capital.items():
         print(f"{sym}: weight = {w:.4f}")
     print(f"Gross exposure: {sum(abs(x) for x in w_capital.values()):.4f}")
