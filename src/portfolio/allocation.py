@@ -49,18 +49,18 @@ class AllocationEngine:
             return {}
         
         # Convert qty-based to capital-based weights if needed
-        if self._mode == "capital_based":
+        if self._mode == "quantity_based":
             notional: Dict[str, float] = {}
             for sym, qty in agg.items():
                 if not ctx.has_symbol(sym):
                     continue
 
-            price = ctx.get_price(sym, "close")
+                price = ctx.get_price(sym, "close")
 
-            if price <= 0:
-                raise ValueError(f"Invalid price for symbol {sym}: {price}")
-            
-            notional[sym] = qty * price
+                if price <= 0:
+                    raise ValueError(f"Invalid price for symbol {sym}: {price}")
+                
+                notional[sym] = qty * price
 
             if not notional:
                 return {}
@@ -116,7 +116,7 @@ if __name__ == "__main__":
     # -----------------------------
     alloc_weights = AllocationEngine(
         mode="weights",
-        max_gross=1.0,
+        max_gross=.9,
         normalize=True,
     )
 
