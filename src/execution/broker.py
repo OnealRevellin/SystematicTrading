@@ -26,10 +26,12 @@ class Broker:
         self,
         *,
         fee_rate: float = 0.0,
-        min_fee: float = 0.0
+        min_fee: float = 0.0,
+        max_fee: float = float("inf"),
     ) -> None:
         self._fee_rate = float(fee_rate)
         self._min_fee = float(min_fee)
+        self._max_fee = float(max_fee)
 
     def execute_orders(
         self,
@@ -50,7 +52,8 @@ class Broker:
             price = ctx.get_price(order.symbol, "close")
             notional = price * abs(order.quantity)
             fee = max(self._fee_rate * notional, self._min_fee)
-
+            fee = min(fee, self._max_fee)
+            
             fills.append(
                 Fill(
                     symbol=order.symbol,
