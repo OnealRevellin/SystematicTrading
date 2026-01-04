@@ -2,11 +2,23 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, Mapping, Optional, Sequence
+from typing import (
+    Dict, Iterable, Mapping, Optional, Sequence, Protocol, runtime_checkable
+)
 
 import pandas as pd
 
 from ..backtesting.context import Bar
+
+
+@runtime_checkable
+class DataHandlerLike(Protocol):
+    """
+    Protocol for DataHandler-like objects.
+    """
+
+    def update(self, now: pd.Timestamp) -> Dict[str, Bar]:
+        ...
 
     
 @dataclass(frozen=True)
@@ -22,6 +34,7 @@ class DataHandlerConfig:
     """
     combined_path: Optional[Path] = None
     folder_path: Optional[Path] = None
+    file_path: Optional[Path] = None
 
     file_extension: str = ".parquet"
     timestamp_col: str = "timestamp"
@@ -94,9 +107,14 @@ class DataHandler:
         universe: Sequence[str]
     ) -> pd.DataFrame:
         """Load market data from disk."""
-        if ((config.combined_path is None) == (config.folder_path is None)):
+        if (
+            (config.combined_path is None) 
+            == (config.folder_path is None) 
+            == (config.file_path is None)
+        ):
             raise ValueError(
-                "Exactly one of `combined_path` or `folder_path` must be provided"
+                "Exactly one of `combined_path` or `folder_path` " \
+                "or `file_path` must be provided"
             )
         
         def _load_data_from_path(path: Path) -> pd.DataFrame:
@@ -109,6 +127,8 @@ class DataHandler:
             else:
                 raise ValueError(f"Unsupported file extension: {path.suffix}")
         
+        
+
         if config.combined_path is not None:
             path = Path(config.combined_path)
             if not path.exists():
@@ -118,7 +138,7 @@ class DataHandler:
 
             # filter by universe
             df = df[df[config.symbol_col].isin(universe)]
-        else:
+        elif config.folder_path is not None:
             folder_path = Path(config.folder_path)
             if not folder_path.exists() or not folder_path.is_dir():
                 raise FileNotFoundError(f"Data folder not found: {folder_path}")
@@ -140,6 +160,12 @@ class DataHandler:
                 raise ValueError("No data files found for the given universe")
             
             df = pd.concat(symb_dfs, ignore_index=True)
+        else:
+            file_path = Path(config.file_path)
+            if not file_path.exists():
+                raise FileNotFoundError(f"Data file not found: {file_path}")
+            
+            df = _load_data_from_path(file_path)
 
         # Ensure timestamp column is datetime
         df[config.timestamp_col] = pd.to_datetime(df[config.timestamp_col])
