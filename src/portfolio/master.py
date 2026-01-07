@@ -47,6 +47,10 @@ class MasterPortfolio:
     @property
     def cash(self) -> float:
         return self._cash
+    
+    @property
+    def fees_paid(self) -> float:
+        return self._fees_paid
 
     @property
     def positions(self) -> Dict[str, float]:
@@ -64,6 +68,18 @@ class MasterPortfolio:
 
         return eq
     
+    def market_value(self, ctx: Context) -> float:
+        """
+        Market Value = sum(positions * closing_price)
+        """
+
+        mv = 0.0
+        for sym, qty in self._positions.items():
+            if ctx.has_symbol(sym):
+                mv += qty * ctx.get_price(sym, "close")
+
+        return mv
+
     # -----------------------------
     # Sizing helpers
     # -----------------------------
@@ -118,7 +134,7 @@ class MasterPortfolio:
         """
         if not allocation:
             return []
-
+                
         ot = order_type or self._default_order_type
         tif = time_in_force or self._default_tif
 
