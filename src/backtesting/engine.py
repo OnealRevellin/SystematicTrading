@@ -29,7 +29,8 @@ from ..portfolio.master import MasterPortfolio
 from ..portfolio.portfolio_recorder import PortfolioRecorder
 from ..execution.broker import Broker
 from ..backtesting.clock import Clock, ClockConfig
-from ..strategy.alphas.example import AlwaysLong
+from ..strategy.alphas.example import AlwaysLong, DollarCostAveraging
+from ..analytics.performance import PerformanceAnalyzer
 
 
 class StrategyLike(Protocol):
@@ -150,20 +151,15 @@ class BacktestingEngine:
                 self._ctx.submit_signals(strat.__class__.__name__, out)
             strategy_outputs = self._ctx.collect_signals()
 
+
             # Allocation -> Orders -> Execution -> Apply -> Record
             alloc = self._allocation_engine.allocate(
                 strategy_outputs,
                 self._ctx,
             )
 
+            
             do_log_this_tick = (self._cfg.log_every_n > 0) and (self._tick % self._cfg.log_every_n == 0)
-
-            if self._cfg.log_allocation and do_log_this_tick:
-                gross = sum(abs(w) for w in alloc.values()) if alloc else 0.0
-                net = sum(alloc.values()) if alloc else 0.0
-                self._log(f"\n[{ts}] ALLOCATION | n={len(alloc)} gross={gross:.6f} net={net:.6f}")
-                for sym, w in sorted(alloc.items()):
-                    self._log(f"  {sym:12s} {w:+.6f}")
 
             if clock.has_next() or not self._cfg.close_positions_at_end:
                 orders = self._portfolio.build_orders(
@@ -174,7 +170,7 @@ class BacktestingEngine:
             else:
                 orders = self._portfolio.build_closing_orders(self._ctx)
 
-            if self._cfg.log_orders and do_log_this_tick:
+            if self._cfg.log_orders and orders:#and do_log_this_tick:
                 self._log(f"\n[{ts}] ORDERS | count={len(orders)}")
                 for o in orders:
                     px = self._ctx.get_price(o.symbol, "close") if self._ctx.has_symbol(o.symbol) else float("nan")
@@ -186,9 +182,16 @@ class BacktestingEngine:
                         f"type={getattr(o, 'order_type', None)} tif={getattr(o, 'time_in_force', None)}"
                     )
 
+                if self._cfg.log_allocation:# and do_log_this_tick:
+                    gross = sum(abs(w) for w in alloc.values()) if alloc else 0.0
+                    net = sum(alloc.values()) if alloc else 0.0
+                    self._log(f"\n[{ts}] ALLOCATION | n={len(alloc)} gross={gross:.6f} net={net:.6f}")
+                    for sym, w in sorted(alloc.items()):
+                        self._log(f"  {sym:12s} {w:+.6f}")
+
             fills = self._broker.execute_orders(orders, self._ctx)
 
-            if self._cfg.log_fills and do_log_this_tick:
+            if self._cfg.log_fills and fills: #and do_log_this_tick:
                 tick_fees = 0.0
                 self._log(f"\n[{ts}] FILLS | count={len(fills)}")
                 for f in fills:
@@ -205,11 +208,13 @@ class BacktestingEngine:
 
             self._portfolio.apply_fills(fills)
 
-            if self._cfg.log_equity and do_log_this_tick:
+            if self._cfg.log_equity and do_log_this_tick or not clock.has_next():
                 eq = self._portfolio.equity(self._ctx)
-                self._log(
-                    f"[{ts}] EQUITY: {eq:,.2f} | cash={self._portfolio.cash:,.2f} | positions={len(self._portfolio.positions)}"
-                )
+                self._log((
+                    f"[{ts}] EQUITY: {eq:,.2f} "
+                    f"| cash={self._portfolio.cash:,.2f} "
+                    f"| positions={len(self._portfolio.positions)}"
+                ))
 
             # Record portfolio state
             self._recorder.record(ts, self._portfolio, self._ctx)
@@ -230,18 +235,42 @@ class BacktestingEngine:
             print(f"Final cash:     {self._portfolio.cash:,.2f}")
             print(f"Final positions:{self._portfolio.positions}")
 
+            # ----------------------------- 
+            # Print performance metrics
+            # -----------------------------
+            print("\n" + "-" * 80)
+            print("PERFORMANCE METRICS")
+            print("-" * 80)
+            perf_data = self._recorder.export_performance_data()
+            perf_analyzer = PerformanceAnalyzer(perf_data)
+            print(f"CAGR:           {perf_analyzer.compute_cagr():.2%}")
+            print(f"Max Drawdown:   {perf_analyzer.compute_max_drawdown():.2%}")
+            print(
+                f"Sharpe Ratio:   "
+                f"{perf_analyzer.compute_sharpe_ratio(risk_free_rate=0.04):.4f}"
+            )
+
         return self._recorder
 
 
 if __name__ == "__main__":
 
+    # tmp = "data_storage/parquet/MSCI_WORLD.parquet"
     tmp = "data_storage/parquet/EURUSD_hourly.parquet"
 
+    # # Setup clock
+    # clock_config = ClockConfig(
+    #     start=pd.Timestamp("2012-09-07 17:00"),
+    #     end=pd.Timestamp("2026-01-07 17:00"),
+    #     freq="1d",
+    #     keep_weekends=False,
+    # )
+
     clock_config = ClockConfig(
-        start=pd.Timestamp("2009-12-22 11:00"),
-        end=pd.Timestamp("2026-01-02 21:00"),
-        freq="1h",
-        keep_weekends=True,
+        start=pd.Timestamp("2016-01-07 17:00"),
+        end=pd.Timestamp("2026-01-07 17:00"),
+        freq="1d",
+        keep_weekends=False,
     )
 
     clock = Clock(clock_config)
@@ -254,25 +283,35 @@ if __name__ == "__main__":
 
     dh = DataHandler(
         clock=timestamps,
-        universe=["EURUSD"],
-        config=DataHandlerConfig(file_path=tmp),
+        universe=["MSCI_WORLD", "EURUSD"],
+        config=DataHandlerConfig(file_path=tmp, ohlcv_cols=("open", "close", "high", "low")),
     )
 
+    # strategies: List[StrategyLike] = [
+    #     AlwaysLong(symbol="EURUSD", weight=1.0)
+    # ]
+
+    # strategies: List[StrategyLike] = [
+    #     AlwaysLong(symbol="MSCI_WORLD", weight=1.0)
+    # ]
+
     strategies: List[StrategyLike] = [
-        AlwaysLong(symbol="EURUSD", weight=1.0)
+        DollarCostAveraging(symbol="EURUSD", weight=0.04, interval_ticks=40),
+        # AlwaysLong(symbol="EURUSD", weight=1.0),
     ]
 
     portfolio = MasterPortfolio(
-        initial_cash=100_000.0,
+        initial_cash=1_000_000.0,
         instrument_rules={
             "EURUSD": {"in_lots": False, "integer": False},
+            "MSCI_WORLD": {"in_lots": False, "integer": True},
         },
     )
 
-    broker = Broker(fee_rate=0.002, min_fee=2.0, max_fee=20.0)
+    broker = Broker(fee_rate=0.002, min_fee=0.0)
 
     alloc_engine = AllocationEngine(
-        max_gross=.9,
+        max_gross=1.0,
         normalize=True,
         mode="capital_based"
     )
@@ -281,14 +320,14 @@ if __name__ == "__main__":
 
     engine = BacktestingEngine(
         cfg=EngineConfig(
-            universe=["EURUSD"],
-            min_size=2_000.0,
+            universe=["MSCI_WORLD", "EURUSD"],
+            min_size=1.0,
             verbose=True,
-            log_allocation=True,
-            log_orders=True,
-            log_fills=True,
-            log_equity=True,
-            log_every_n=24,  # hourly data -> print once per day
+            log_allocation=False,
+            log_orders=False,
+            log_fills=False,
+            log_equity=False,
+            log_every_n=252,  # hourly data -> print once per day
         ),
         data_handler=dh,
         strategies=strategies,
@@ -300,4 +339,4 @@ if __name__ == "__main__":
 
     recorder = engine.run(clock)
 
-    print(recorder.metrics_df())
+    # print(recorder.metrics_df())
