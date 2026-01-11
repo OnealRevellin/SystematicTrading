@@ -123,6 +123,13 @@ class Context:
 
         self._strict: bool = strict
 
+    @property
+    def signals_by_strategy(self) -> Mapping[str, StrategyOutput]:
+        """
+        Read-only mapping of strategy_id -> StrategyOutput for the current tick.
+        """
+        return MappingProxyType(self._signals_by_strategy)
+
     # -----------------------------
     # Tick control APIs
     # -----------------------------
