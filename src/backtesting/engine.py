@@ -159,7 +159,10 @@ class BacktestingEngine:
             )
 
             
-            do_log_this_tick = (self._cfg.log_every_n > 0) and (self._tick % self._cfg.log_every_n == 0)
+            do_log_this_tick = (
+                (self._cfg.log_every_n > 0) 
+                and (self._tick % self._cfg.log_every_n == 0)
+            )
 
             if clock.has_next() or not self._cfg.close_positions_at_end:
                 orders = self._portfolio.build_orders(
@@ -170,22 +173,33 @@ class BacktestingEngine:
             else:
                 orders = self._portfolio.build_closing_orders(self._ctx)
 
-            if self._cfg.log_orders and orders:#and do_log_this_tick:
+            if self._cfg.log_orders and orders:
                 self._log(f"\n[{ts}] ORDERS | count={len(orders)}")
                 for o in orders:
-                    px = self._ctx.get_price(o.symbol, "close") if self._ctx.has_symbol(o.symbol) else float("nan")
-                    notional = abs(o.quantity * px) if px == px else float("nan")
+                    px = (
+                        self._ctx.get_price(o.symbol, "close") 
+                        if self._ctx.has_symbol(o.symbol) 
+                        else float("nan")
+                    )
+
+                    notional = (
+                        abs(o.quantity * px) if px == px else float("nan")
+                    )
+
                     side = "BUY" if o.quantity > 0 else "SELL"
+                    
                     self._log(
                         f"  {side:4s} {abs(o.quantity):>12.6f} {o.symbol:12s} "
                         f"@ {px:>12.6f} notional={notional:>14,.2f} "
                         f"type={getattr(o, 'order_type', None)} tif={getattr(o, 'time_in_force', None)}"
                     )
 
-                if self._cfg.log_allocation:# and do_log_this_tick:
+                if self._cfg.log_allocation:
                     gross = sum(abs(w) for w in alloc.values()) if alloc else 0.0
                     net = sum(alloc.values()) if alloc else 0.0
-                    self._log(f"\n[{ts}] ALLOCATION | n={len(alloc)} gross={gross:.6f} net={net:.6f}")
+                    self._log(
+                        f"\n[{ts}] ALLOCATION | n={len(alloc)} gross={gross:.6f} net={net:.6f}"
+                    )
                     for sym, w in sorted(alloc.items()):
                         self._log(f"  {sym:12s} {w:+.6f}")
 
@@ -227,7 +241,11 @@ class BacktestingEngine:
         if self._cfg.verbose and self._initial_equity is not None:
             final_eq = self._portfolio.equity(self._ctx)
             pnl = final_eq - self._initial_equity
-            pnl_pct = (pnl / self._initial_equity) * 100 if self._initial_equity > 0 else 0.0
+            pnl_pct = (
+                (pnl / self._initial_equity) * 100 
+                if self._initial_equity > 0 
+                else 0.0
+            )
 
             print("\n" + "=" * 80)
             print("BACKTEST SUMMARY")
