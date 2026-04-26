@@ -259,8 +259,8 @@ class BacktestingEngine:
 
 if __name__ == "__main__":
 
-    # tmp = "data_storage/parquet/MSCI_WORLD.parquet"
-    tmp = "data_storage/parquet/EURUSD_hourly.parquet"
+    tmp = "data_storage/parquet/MSCI_WORLD.parquet"
+    # tmp = "data_storage/parquet/EURUSD_hourly.parquet"
 
     # # Setup clock
     # clock_config = ClockConfig(
@@ -269,7 +269,6 @@ if __name__ == "__main__":
     #     freq="1d",
     #     keep_weekends=False,
     # )
-
     clock_config = ClockConfig(
         start=pd.Timestamp("2016-01-07 17:00"),
         end=pd.Timestamp("2026-01-07 17:00"),
@@ -300,8 +299,8 @@ if __name__ == "__main__":
     # ]
 
     strategies: List[StrategyLike] = [
-        DollarCostAveraging(symbol="EURUSD", weight=0.04, interval_ticks=40),
-        # AlwaysLong(symbol="EURUSD", weight=1.0),
+        # DollarCostAveraging(symbol="MSCI_WORLD", weight=0.04, interval_ticks=40),
+        AlwaysLong(symbol="MSCI_WORLD", weight=1.0),
     ]
 
     portfolio = MasterPortfolio(
@@ -328,10 +327,10 @@ if __name__ == "__main__":
             min_size=1.0,
             verbose=True,
             log_allocation=False,
-            log_orders=False,
-            log_fills=False,
+            log_orders=True,
+            log_fills=True,
             log_equity=False,
-            log_every_n=252,  # hourly data -> print once per day
+            log_every_n=1,
         ),
         data_handler=dh,
         strategies=strategies,
@@ -342,5 +341,8 @@ if __name__ == "__main__":
     )
 
     recorder = engine.run(clock)
+    recorder.plot_equity_line()
 
     # print(recorder.metrics_df())
+    # print(recorder.positions_df())
+
