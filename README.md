@@ -1,4 +1,4 @@
-# SystematicTrading
+# Trading Strategies Backtester (Chronos Backtester)
 
 A modular quantitative trading backtesting framework written in Python (this first version is not leveraging HPC but more focused on accuracy and analytics).
 
@@ -78,8 +78,8 @@ src/
 ## Clone repository
 
 ```bash
-git clone https://github.com/OnealRevellin/SystematicTrading.git
-cd SystematicTrading
+git clone https://github.com/OnealRevellin/chronos-backtester.git
+cd chronos-backtester
 ```
 
 ## Create environment
