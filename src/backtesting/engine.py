@@ -276,8 +276,11 @@ class BacktestingEngine:
 
 
 if __name__ == "__main__":
+    import time
+    perf_timer = {}
 
-    tmp = "data_storage/parquet/MSCI_WORLD.parquet"
+    tmp = "data_storage/parquet/MSCI_WORLD_NET_USD.parquet"
+    # tmp = "data_storage/parquet/MSCI_WORLD.parquet"
     # tmp = "data_storage/parquet/EURUSD_hourly.parquet"
 
     # # Setup clock
@@ -287,9 +290,10 @@ if __name__ == "__main__":
     #     freq="1d",
     #     keep_weekends=False,
     # )
+    start_time = time.perf_counter()
     clock_config = ClockConfig(
-        start=pd.Timestamp("2016-01-07 17:00"),
-        end=pd.Timestamp("2026-01-07 17:00"),
+        start=pd.Timestamp("2012-12-25 17:30"),
+        end=pd.Timestamp("2026-04-27 17:30"),
         freq="1d",
         keep_weekends=False,
     )
@@ -301,12 +305,17 @@ if __name__ == "__main__":
         timestamps.append(clock.now)
 
     clock.reset()
+    end_time = time.perf_counter()
+    perf_timer["clock_init"] = (end_time - start_time) * 1000
 
+    start_time = time.perf_counter()
     dh = DataHandler(
         clock=timestamps,
-        universe=["MSCI_WORLD", "EURUSD"],
+        universe=["MSCI_WORLD", "EURUSD", "MSCI_WORLD_NET_USD"],
         config=DataHandlerConfig(file_path=tmp, ohlcv_cols=("open", "close", "high", "low")),
     )
+    end_time = time.perf_counter()
+    perf_timer["datahandler_init"] = (end_time - start_time) * 1000
 
     # strategies: List[StrategyLike] = [
     #     AlwaysLong(symbol="EURUSD", weight=1.0)
@@ -318,17 +327,22 @@ if __name__ == "__main__":
 
     strategies: List[StrategyLike] = [
         # DollarCostAveraging(symbol="MSCI_WORLD", weight=0.04, interval_ticks=40),
-        AlwaysLong(symbol="MSCI_WORLD", weight=1.0),
+        AlwaysLong(symbol="MSCI_WORLD_NET_USD", weight=1.0),
     ]
 
+    start_time = time.perf_counter()
     portfolio = MasterPortfolio(
         initial_cash=1_000_000.0,
         instrument_rules={
             "EURUSD": {"in_lots": False, "integer": False},
             "MSCI_WORLD": {"in_lots": False, "integer": True},
+            "MSCI_WORLD_NET_USD": {"in_lots": False, "integer": True},
         },
     )
+    end_time = time.perf_counter()
+    perf_timer["portfolio_init"] = (end_time - start_time) * 1000
 
+    start_time = time.perf_counter()
     broker = Broker(fee_rate=0.002, min_fee=0.0)
 
     alloc_engine = AllocationEngine(
@@ -337,11 +351,15 @@ if __name__ == "__main__":
         mode="capital_based"
     )
 
+    end_time = time.perf_counter()
+    perf_timer["alloc_engine_init"] = (end_time - start_time) * 1000
+
     portfolio_recorder = PortfolioRecorder()
 
+    start_time = time.perf_counter()
     engine = BacktestingEngine(
         cfg=EngineConfig(
-            universe=["MSCI_WORLD", "EURUSD"],
+            universe=["MSCI_WORLD", "EURUSD", "MSCI_WORLD_NET_USD"],
             min_size=1.0,
             verbose=True,
             log_allocation=False,
@@ -358,9 +376,22 @@ if __name__ == "__main__":
         allocation_engine=alloc_engine,
     )
 
+    end_time = time.perf_counter()
+    perf_timer["engine_init"] = (end_time - start_time) * 1000
+
+    start_time = time.perf_counter()
     recorder = engine.run(clock)
+    end_time = time.perf_counter()
+    perf_timer["engine_run"] = (end_time - start_time) * 1000
+    
     recorder.plot_equity_line()
 
     # print(recorder.metrics_df())
     # print(recorder.positions_df())
 
+
+    print("\n" + "-" * 80)
+    print("EXEC PERF TIMERS")
+    print("-" * 80)
+    for k, v in perf_timer.items():
+        print(f"{k} = {v} ms")
