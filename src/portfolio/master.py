@@ -133,7 +133,7 @@ class MasterPortfolio:
         List[Order]
         """
         if not allocation:
-            return []
+            return self.build_closing_orders(ctx=ctx)
                 
         ot = order_type or self._default_order_type
         tif = time_in_force or self._default_tif
