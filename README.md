@@ -17,6 +17,8 @@ The project is designed around:
 
 # Example Output
 
+> **Warning:** This first phase of the project is focused on development and testing, not research. The example strategies below are not built for performance optimization but rather to demonstrate and test various strategy types using the backtesting tool.
+
 ## long only position (lumpsum) on MSCI World ETF (ACC).
 ```text
 ================================================================================
