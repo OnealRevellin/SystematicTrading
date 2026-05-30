@@ -29,7 +29,9 @@ from ..portfolio.master import MasterPortfolio
 from ..portfolio.portfolio_recorder import PortfolioRecorder
 from ..execution.broker import Broker
 from ..backtesting.clock import Clock, ClockConfig
-from ..strategy.alphas.example import AlwaysLong, DollarCostAveraging
+from ..strategy.alphas.example import (
+    AlwaysLong, DollarCostAveraging, MeanReversion, Momentum
+)
 from ..analytics.performance import PerformanceAnalyzer
 
 
@@ -151,14 +153,13 @@ class BacktestingEngine:
                 self._ctx.submit_signals(strat.__class__.__name__, out)
             strategy_outputs = self._ctx.collect_signals()
 
-
             # Allocation -> Orders -> Execution -> Apply -> Record
             alloc = self._allocation_engine.allocate(
                 strategy_outputs,
                 self._ctx,
             )
+            print(alloc)
 
-            
             do_log_this_tick = (
                 (self._cfg.log_every_n > 0) 
                 and (self._tick % self._cfg.log_every_n == 0)
@@ -261,16 +262,16 @@ class BacktestingEngine:
             # ----------------------------- 
             # Print performance metrics
             # -----------------------------
-            print("\n" + "-" * 80)
+            print("\n" + "=" * 80)
             print("PERFORMANCE METRICS")
-            print("-" * 80)
+            print("=" * 80)
             perf_data = self._recorder.export_performance_data()
             perf_analyzer = PerformanceAnalyzer(perf_data)
             print(f"CAGR:           {perf_analyzer.compute_cagr():.2%}")
             print(f"Max Drawdown:   {perf_analyzer.compute_max_drawdown():.2%}")
             print(
                 f"Sharpe Ratio:   "
-                f"{perf_analyzer.compute_sharpe_ratio(risk_free_rate=0.04):.4f}"
+                f"{perf_analyzer.compute_sharpe_ratio(risk_free_rate=0.04):.4f} (risk-free rate fixed to 4%)"
             )
 
         return self._recorder
@@ -328,7 +329,23 @@ if __name__ == "__main__":
 
     strategies: List[StrategyLike] = [
         # DollarCostAveraging(symbol="MSCI_WORLD", weight=0.04, interval_ticks=40),
-        AlwaysLong(symbol="MSCI_WORLD_NET_USD", weight=1.0),
+        # AlwaysLong(symbol="MSCI_WORLD_NET_USD", weight=1.0),
+        # MeanReversion(
+        #     symbol="MSCI_WORLD_NET_USD", 
+        #     avg_window=14,
+        #     long_threshold=0.03,
+        #     short_threshold=-0.03,
+        #     side_constraint=1,
+        #     weight=1.0
+        # ),
+        Momentum(
+            symbol="MSCI_WORLD_NET_USD", 
+            avg_window=5,
+            long_threshold=0.02,
+            short_threshold=-0.02,
+            side_constraint=-1,
+            weight=1.0
+        )
     ]
 
     start_time = time.perf_counter()
@@ -387,7 +404,7 @@ if __name__ == "__main__":
     
     recorder.plot_equity_line()
 
-    # print(recorder.metrics_df())
+    recorder.metrics_df().to_clipboard()
     # print(recorder.positions_df())
 
 
