@@ -139,7 +139,8 @@ class MeanReversion(Strategy):
             return StrategyOutput(weights={})
         
         # compute avg of X past prices and current diff to average in %
-        avg = np.mean(self._past_prices)
+        # [-1:] -> eclude most current price to avoid Look-ahead bias
+        avg = np.mean(list(self._past_prices)[:-1])
         diff_w_avg = curr_px / avg - 1.0
 
         # if diff to avg is >= our long threshold then become short or neutral
@@ -189,6 +190,7 @@ class Momentum(Strategy):
         long_threshold: float = 0.02,
         short_threshold: float = -0.02,
         side_constraint: int = 0, # -1/1 = short|long only, 0 long & short
+        keep_expo_in_range: bool = False,
         weight: float = 1.0
     ) -> StrategyOutput:
         self._symbol = symbol
@@ -197,6 +199,7 @@ class Momentum(Strategy):
         self._long_threshold = long_threshold
         self._short_threshold = short_threshold
         self._side_constraint = side_constraint
+        self._keep_expo_in_range = keep_expo_in_range
 
         self._current_tick = 0
         self._past_prices = deque(maxlen=avg_window)
@@ -219,7 +222,8 @@ class Momentum(Strategy):
             return StrategyOutput(weights={})
         
         # compute avg of X past prices and current diff to average in %
-        avg = np.mean(self._past_prices)
+        # [-1:] -> eclude most current price to avoid Look-ahead bias
+        avg = np.mean(list(self._past_prices)[:-1])
         diff_w_avg = curr_px / avg - 1.0
 
         # if diff to avg is >= our long threshold then become short or neutral
@@ -244,6 +248,9 @@ class Momentum(Strategy):
             self._curr_side = 0
             return StrategyOutput(weights={})
     
+        if not self._keep_expo_in_range:
+            return StrategyOutput(weights={})
+        
         # else, just keep the current positions
         strat_output = {
             -1: StrategyOutput(weights={self._symbol: -self._weight}),
