@@ -103,18 +103,18 @@ Equity line:
 BACKTEST SUMMARY
 ================================================================================
 Initial equity: 1,000,000.00
-Final equity:   298,017.11
-PnL:            -701,982.89 (-70.20%)
-Cumulative fees:138,820.35
-Final cash:     298,017.11
+Final equity:   1,704,268.69
+PnL:            704,268.69 (+70.43%)
+Cumulative fees:236,504.98
+Final cash:     1,704,268.69
 Final positions:{}
 
 ================================================================================
 PERFORMANCE METRICS
 ================================================================================
-CAGR:           -8.68%
-Max Drawdown:   -76.82%
-Sharpe Ratio:   -0.8404 (risk-free rate fixed to 4%)
+CAGR:           4.08%
+Max Drawdown:   -27.07%
+Sharpe Ratio:   0.0618 (risk-free rate fixed to 4%)
 ```
 
 Equity line:
